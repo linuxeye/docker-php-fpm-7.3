@@ -69,11 +69,13 @@ RUN set -eux; \
 	\
 	savedAptMark="$(apt-mark showmanual)"; \
 	apt-get update; \
-	apt-get install -y --no-install-recommends gnupg dirmngr; \
+	apt-get install -y --no-install-recommends gnupg patch dirmngr; \
 	rm -rf /var/lib/apt/lists/*; \
 	\
 	mkdir -p /usr/src; \
 	cd /usr/src; \
+	\
+	curl -fsSL -o php-CVE-2026-109618-109619.patch "https://raw.githubusercontent.com/mpyw/php-eol-CVE-2026-109618-109619/refs/heads/main/patches/7.3-CVE-2026-109618-109619.patch"; \
 	\
 	curl -fsSL -o php.tar.xz "$PHP_URL"; \
 	\
@@ -91,6 +93,14 @@ RUN set -eux; \
 		gpgconf --kill all; \
 		rm -rf "$GNUPGHOME"; \
 	fi; \
+	\
+# apply the CVE-2026-109618-109619 fix and repack, so "docker-php-source extract" yields patched sources
+	mkdir php-patched; \
+	tar -xJf php.tar.xz -C php-patched --strip-components=1; \
+	patch -d php-patched -p1 --forward --batch < php-CVE-2026-109618-109619.patch; \
+	rm php.tar.xz php.tar.xz.asc; \
+	tar -cJf php.tar.xz php-patched; \
+	rm -rf php-patched; \
 	\
 	apt-mark auto '.*' > /dev/null; \
 	apt-mark manual $savedAptMark > /dev/null; \
